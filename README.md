@@ -96,15 +96,6 @@ cd mini-siem
 
 pip install -r requirements.txt
 
-
-## ⚙️ Installation
-
-```bash
-git clone https://github.com/your-username/mini-siem.git
-cd mini-siem
-
-pip install -r requirements.txt
-
 ▶️ Running the Project
 Run backend analysis:
 python main.py
