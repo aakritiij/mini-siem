@@ -1,20 +1,20 @@
-from collections import defaultdict
-
-def detect_suspicious_behavior(logs, threshold=5):
-    ip_user_map = defaultdict(set)
+def detect_suspicious_behavior(logs):
+    ip_users = {}
 
     for log in logs:
         if log["status"] == "Failed":
-            ip_user_map[log["ip"]].add(log["user"])
+            ip = log["ip"]
+            user = log["user"]
 
-    results = []
+            if ip not in ip_users:
+                ip_users[ip] = set()
 
-    for ip, users in ip_user_map.items():
-        if len(users) >= threshold:
-            results.append({
-                "ip": ip,
-                "unique_users": len(users),
-                "type": "Suspicious Behavior"
-            })
+            ip_users[ip].add(user)
 
-    return results
+    result = {}
+
+    for ip, users in ip_users.items():
+        if len(users) >= 3:  # threshold
+            result[ip] = len(users)
+
+    return result

@@ -1,22 +1,16 @@
-from collections import defaultdict
-
-def detect_brute_force(logs, threshold=5):
-    failed_attempts = defaultdict(int)
+def detect_brute_force(logs):
+    ip_fail_count = {}
 
     for log in logs:
         if log["status"] == "Failed":
-            failed_attempts[log["ip"]] += 1
+            ip = log["ip"]
+            ip_fail_count[ip] = ip_fail_count.get(ip, 0) + 1
 
-    results = []
+    # Only keep suspicious IPs (threshold = 5)
+    result = {}
 
-    for ip, count in failed_attempts.items():
-        is_malicious = count >= threshold
+    for ip, count in ip_fail_count.items():
+        if count >= 5:
+            result[ip] = count
 
-        results.append({
-            "ip": ip,
-            "failed_attempts": count,
-            "is_malicious": is_malicious,
-            "type": "Brute Force"
-        })
-
-    return results
+    return result

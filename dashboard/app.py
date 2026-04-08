@@ -18,6 +18,8 @@ from detection.risk_scoring import calculate_risk_scores
 from alerts.alert_manager import generate_alerts
 from correlation.correlator import correlate_alerts
 from analysis.timeline import generate_timeline
+from utils.normalizer import normalize_logs
+from utils.notes_manager import add_note, get_note
 
 # ---------------- CONFIG ----------------
 st.set_page_config(page_title="Mini SIEM", layout="wide")
@@ -32,13 +34,7 @@ st.markdown("""
     padding: 15px;
     border-radius: 10px;
     text-align: center;
-}
-
-.section {
-    background-color: #1c1f26;
-    padding: 15px;
-    border-radius: 10px;
-    margin-bottom: 15px;
+    color: white;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -51,6 +47,7 @@ refresh_rate = st.sidebar.slider("Refresh Interval (seconds)", 1, 10, 2)
 
 # ---------------- LOAD ----------------
 logs = parse_auth_log(LOG_PATH)
+logs = normalize_logs(logs)
 logs_df = pd.DataFrame(logs)
 
 # ---------------- DETECTION ----------------
@@ -58,7 +55,11 @@ brute_force_results = detect_brute_force(logs)
 suspicious_results = detect_suspicious_behavior(logs)
 
 # ---------------- RISK ENGINE ----------------
-risk_scores = calculate_risk_scores(brute_force_results, suspicious_results)
+risk_scores = calculate_risk_scores(
+    brute_force_results,
+    suspicious_results,
+    logs
+)
 
 # ---------------- ALERTS ----------------
 alerts = generate_alerts(risk_scores)
@@ -77,30 +78,139 @@ selected_ip = st.sidebar.selectbox(
 )
 
 if selected_ip != "All":
-    logs_df = logs_df[logs_df["ip"] == selected_ip]
-    alerts_df = alerts_df[alerts_df["ip"] == selected_ip]
-    correlated_df = correlated_df[correlated_df["ip"] == selected_ip]
+    if "ip" in logs_df.columns:
+        logs_df = logs_df[logs_df["ip"] == selected_ip]
+
+    if "ip" in alerts_df.columns:
+        alerts_df = alerts_df[alerts_df["ip"] == selected_ip]
+
+    if not correlated_df.empty and "ip" in correlated_df.columns:
+        correlated_df = correlated_df[correlated_df["ip"] == selected_ip]
 
 # ---------------- KPI ----------------
 st.subheader("Overview")
 
 col1, col2, col3 = st.columns(3)
 
-col1.markdown(f"<div class='metric-card'>Logs<br><h2>{len(logs_df)}</h2></div>", unsafe_allow_html=True)
-col2.markdown(f"<div class='metric-card'>Alerts<br><h2>{len(alerts_df)}</h2></div>", unsafe_allow_html=True)
-col3.markdown(f"<div class='metric-card'>High Risk<br><h2>{len(correlated_df)}</h2></div>", unsafe_allow_html=True)
+col1.markdown(
+    f"<div class='metric-card'>Logs<br><h2>{len(logs_df)}</h2></div>",
+    unsafe_allow_html=True
+)
+col2.markdown(
+    f"<div class='metric-card'>Alerts<br><h2>{len(alerts_df)}</h2></div>",
+    unsafe_allow_html=True
+)
+col3.markdown(
+    f"<div class='metric-card'>High Risk<br><h2>{len(correlated_df)}</h2></div>",
+    unsafe_allow_html=True
+)
 
 # ---------------- RISK RANKING ----------------
 st.subheader("Top Threats (Risk Ranking)")
 
-risk_data = [{"ip": ip, "risk_score": data["score"]} for ip, data in risk_scores.items()]
+risk_data = [
+    {
+        "ip": ip,
+        "risk_score": data["score"],
+        "reasons": ", ".join(data["reasons"])
+    }
+    for ip, data in risk_scores.items()
+]
+
 risk_df = pd.DataFrame(risk_data).sort_values(by="risk_score", ascending=False)
 
 if not risk_df.empty:
     top_ip = risk_df.iloc[0]
-    st.error(f"⚠️ Highest Risk: {top_ip['ip']} (Score: {top_ip['risk_score']})")
+    st.error(f"Highest Risk: {top_ip['ip']} (Score: {top_ip['risk_score']})")
 
 st.dataframe(risk_df, use_container_width=True)
+
+st.subheader("Incident Investigation View")
+
+if not risk_df.empty:
+
+    selected_incident_ip = st.selectbox(
+        "Select Incident (IP)",
+        risk_df["ip"].tolist(),
+        key="incident_view_ip"
+    )
+
+    # ----------- GET DATA -----------
+    incident_risk = risk_df[risk_df["ip"] == selected_incident_ip].iloc[0]
+
+    incident_alert = alerts_df[alerts_df["ip"] == selected_incident_ip]
+
+    incident_logs = logs_df[logs_df["ip"] == selected_incident_ip]
+
+    # ----------- SUMMARY -----------
+    st.markdown("### Incident Summary")
+
+    col1, col2 = st.columns(2)
+
+    col1.metric("Risk Score", incident_risk["risk_score"])
+
+    if not incident_alert.empty:
+        col2.metric("Severity", incident_alert.iloc[0]["severity"])
+    else:
+        col2.metric("Severity", "N/A")
+
+    st.write("**Reasons:**")
+    st.write(incident_risk["reasons"])
+
+    # ----------- TIMELINE -----------
+    st.markdown("### Activity Timeline")
+
+    timeline_data = generate_timeline(
+        incident_logs.to_dict("records"),
+        selected_incident_ip
+    )
+
+    timeline_df = pd.DataFrame(timeline_data)
+
+    if not timeline_df.empty:
+        timeline_counts = timeline_df["timestamp"].value_counts()
+        st.bar_chart(timeline_counts)
+    else:
+        st.info("No timeline data available")
+
+    # ----------- RAW LOGS -----------
+    st.markdown("### Related Logs")
+    st.dataframe(incident_logs, use_container_width=True)
+
+    # ----------- ANALYST NOTES -----------
+    st.markdown("### Analyst Notes")
+
+    existing_note = get_note(selected_incident_ip)
+
+    note_input = st.text_area(
+        "Update Investigation Notes",
+        value=existing_note,
+        key="incident_note_box"
+    )
+
+    if st.button("Save Incident Note"):
+        add_note(selected_incident_ip, note_input)
+        st.success("Note updated")
+
+        
+st.subheader("Analyst Investigation")
+
+selected_ip_note = st.selectbox(
+    "Select IP to Investigate",
+    sorted(risk_df["ip"].tolist())
+)
+
+existing_note = get_note(selected_ip_note)
+
+note_input = st.text_area(
+    "Add Investigation Notes",
+    value=existing_note,
+    height=100
+)
+
+if st.button("Save Note"):
+    add_note(selected_ip_note, note_input)
+    st.success("Note saved successfully")
 
 # ---------------- CRITICAL INCIDENTS ----------------
 st.subheader("High Priority Incidents")
@@ -115,19 +225,15 @@ else:
 st.subheader("Attack Timeline Investigation")
 
 if selected_ip == "All":
-    st.info("Select an IP from the sidebar to investigate")
+    st.info("Select an IP from sidebar")
 else:
     timeline_data = generate_timeline(logs_df.to_dict("records"), selected_ip)
     timeline_df = pd.DataFrame(timeline_data)
 
     if not timeline_df.empty:
-        st.write(f"Activity for IP: {selected_ip}")
         st.dataframe(timeline_df, use_container_width=True)
-
-        timeline_counts = timeline_df["timestamp"].value_counts().reset_index()
-        timeline_counts.columns = ["timestamp", "count"]
-
-        st.bar_chart(timeline_counts.set_index("timestamp"))
+        timeline_counts = timeline_df["timestamp"].value_counts()
+        st.bar_chart(timeline_counts)
     else:
         st.info("No activity found")
 
@@ -145,14 +251,22 @@ st.subheader("All Alerts")
 
 if not alerts_df.empty:
     alerts_df = alerts_df.sort_values(by="risk_score", ascending=False)
-    st.dataframe(alerts_df, use_container_width=True)
+    st.dataframe(
+    alerts_df.sort_values(by="risk_score", ascending=False),
+    use_container_width=True
+)
 
 # ---------------- EXPORT ----------------
 st.subheader("Export Alerts")
 
 if not alerts_df.empty:
     csv = alerts_df.to_csv(index=False).encode("utf-8")
-    st.download_button("Download Alerts as CSV", csv, "alerts.csv", "text/csv")
+    st.download_button(
+        label="Download Alerts",
+        data=csv,
+        file_name="alerts.csv",
+        mime="text/csv"
+    )
 
 # ---------------- LOGS ----------------
 st.subheader("Raw Logs")
