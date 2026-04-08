@@ -22,6 +22,27 @@ from analysis.timeline import generate_timeline
 # ---------------- CONFIG ----------------
 st.set_page_config(page_title="Mini SIEM", layout="wide")
 
+# ---------------- CUSTOM CSS ----------------
+st.markdown("""
+<style>
+.block-container { padding-top: 1rem; }
+
+.metric-card {
+    background-color: #1c1f26;
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.section {
+    background-color: #1c1f26;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+}
+</style>
+""", unsafe_allow_html=True)
+
 st.title("Security Monitoring Dashboard")
 
 # ---------------- SIDEBAR ----------------
@@ -37,10 +58,7 @@ brute_force_results = detect_brute_force(logs)
 suspicious_results = detect_suspicious_behavior(logs)
 
 # ---------------- RISK ENGINE ----------------
-risk_scores = calculate_risk_scores(
-    brute_force_results,
-    suspicious_results
-)
+risk_scores = calculate_risk_scores(brute_force_results, suspicious_results)
 
 # ---------------- ALERTS ----------------
 alerts = generate_alerts(risk_scores)
@@ -67,59 +85,51 @@ if selected_ip != "All":
 st.subheader("Overview")
 
 col1, col2, col3 = st.columns(3)
-col1.metric("Logs", len(logs_df))
-col2.metric("Alerts", len(alerts_df))
-col3.metric("High Risk Incidents", len(correlated_df))
+
+col1.markdown(f"<div class='metric-card'>Logs<br><h2>{len(logs_df)}</h2></div>", unsafe_allow_html=True)
+col2.markdown(f"<div class='metric-card'>Alerts<br><h2>{len(alerts_df)}</h2></div>", unsafe_allow_html=True)
+col3.markdown(f"<div class='metric-card'>High Risk<br><h2>{len(correlated_df)}</h2></div>", unsafe_allow_html=True)
 
 # ---------------- RISK RANKING ----------------
-st.subheader("Risk Ranking")
+st.subheader("Top Threats (Risk Ranking)")
 
-risk_data = [
-    {"ip": ip, "risk_score": data["score"]}
-    for ip, data in risk_scores.items()
-]
+risk_data = [{"ip": ip, "risk_score": data["score"]} for ip, data in risk_scores.items()]
+risk_df = pd.DataFrame(risk_data).sort_values(by="risk_score", ascending=False)
 
-risk_df = pd.DataFrame(risk_data).sort_values(
-    by="risk_score", ascending=False
-)
+if not risk_df.empty:
+    top_ip = risk_df.iloc[0]
+    st.error(f"⚠️ Highest Risk: {top_ip['ip']} (Score: {top_ip['risk_score']})")
 
 st.dataframe(risk_df, use_container_width=True)
-
-# ---------------- TIMELINE ----------------
-st.subheader("Attack Timeline Investigation")
-
-if selected_ip == "All":
-    st.info("Select an IP from the sidebar to view timeline")
-else:
-    timeline_data = generate_timeline(
-        logs_df.to_dict("records"),
-        selected_ip
-    )
-
-    timeline_df = pd.DataFrame(timeline_data)
-
-    if not timeline_df.empty:
-        st.write(f"Showing activity for IP: {selected_ip}")
-        st.dataframe(timeline_df, use_container_width=True)
-
-        # better chart
-        timeline_counts = timeline_df["timestamp"].value_counts().reset_index()
-        timeline_counts.columns = ["timestamp", "count"]
-
-        st.bar_chart(timeline_counts.set_index("timestamp"))
-    else:
-        st.info("No activity found for selected IP")
 
 # ---------------- CRITICAL INCIDENTS ----------------
 st.subheader("High Priority Incidents")
 
 if not correlated_df.empty:
-    correlated_df = correlated_df.sort_values(
-        by="risk_score", ascending=False
-    )
+    correlated_df = correlated_df.sort_values(by="risk_score", ascending=False)
     st.dataframe(correlated_df, use_container_width=True)
 else:
     st.warning("No high-risk incidents detected")
+
+# ---------------- TIMELINE ----------------
+st.subheader("Attack Timeline Investigation")
+
+if selected_ip == "All":
+    st.info("Select an IP from the sidebar to investigate")
+else:
+    timeline_data = generate_timeline(logs_df.to_dict("records"), selected_ip)
+    timeline_df = pd.DataFrame(timeline_data)
+
+    if not timeline_df.empty:
+        st.write(f"Activity for IP: {selected_ip}")
+        st.dataframe(timeline_df, use_container_width=True)
+
+        timeline_counts = timeline_df["timestamp"].value_counts().reset_index()
+        timeline_counts.columns = ["timestamp", "count"]
+
+        st.bar_chart(timeline_counts.set_index("timestamp"))
+    else:
+        st.info("No activity found")
 
 # ---------------- ATTACK ANALYSIS ----------------
 st.subheader("Failed Login Attempts by IP")
@@ -134,9 +144,7 @@ if not failed_logs.empty:
 st.subheader("All Alerts")
 
 if not alerts_df.empty:
-    alerts_df = alerts_df.sort_values(
-        by="risk_score", ascending=False
-    )
+    alerts_df = alerts_df.sort_values(by="risk_score", ascending=False)
     st.dataframe(alerts_df, use_container_width=True)
 
 # ---------------- EXPORT ----------------
@@ -144,12 +152,7 @@ st.subheader("Export Alerts")
 
 if not alerts_df.empty:
     csv = alerts_df.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        label="Download Alerts as CSV",
-        data=csv,
-        file_name="alerts.csv",
-        mime="text/csv"
-    )
+    st.download_button("Download Alerts as CSV", csv, "alerts.csv", "text/csv")
 
 # ---------------- LOGS ----------------
 st.subheader("Raw Logs")
