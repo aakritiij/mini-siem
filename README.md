@@ -70,3 +70,43 @@ This system goes further by focusing on:
 ---
 
 ## 🏗️ Project Structure
+mini-siem/
+│
+├── ingestion/ # Log parsing
+├── detection/ # Detection logic (brute force, suspicious, risk scoring)
+├── analysis/ # Timeline & anomaly detection
+├── alerts/ # Alert generation & deduplication
+├── correlation/ # Event correlation
+├── utils/ # Helpers (normalization, threat intel, notes)
+├── dashboard/ # Streamlit dashboard
+│
+├── data/ # Log files & notes storage
+├── main.py # CLI execution
+├── requirements.txt
+└── README.md
+
+
+---
+
+## ⚙️ Installation
+
+```bash
+git clone https://github.com/aakritiij/mini-siem.git
+cd mini-siem
+
+pip install -r requirements.txt
+
+
+## ⚙️ Installation
+
+```bash
+git clone https://github.com/your-username/mini-siem.git
+cd mini-siem
+
+pip install -r requirements.txt
+
+▶️ Running the Project
+Run backend analysis:
+python main.py
+Run dashboard:
+streamlit run dashboard/app.py
