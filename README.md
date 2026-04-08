@@ -1,106 +1,72 @@
-# Mini SIEM - Security Monitoring & Threat Detection System
+# Mini SIEM System (Python)
 
-A Python-based Mini SIEM (Security Information and Event Management) system that simulates real-world SOC (Security Operations Center) workflows including log ingestion, threat detection, risk scoring, and attack investigation.
+A practical, real-world inspired Security Information and Event Management (SIEM) system built using Python.
 
----
-
-## 🚀 Features
-
-### 🔹 Log Ingestion
-- Parses raw Linux SSH authentication logs (`auth.log`)
-- Converts unstructured logs into structured security events
-
-### 🔹 Threat Detection
-- Brute force attack detection (multiple failed login attempts)
-- Suspicious behavior detection (multiple username attempts)
-
-### 🔹 Risk Scoring Engine
-- Assigns dynamic risk scores based on multiple behavioral indicators
-- Replaces static severity with intelligent prioritization
-
-### 🔹 Event Correlation
-- Aggregates multiple signals into high-confidence security incidents
-- Reduces alert noise
-
-### 🔹 Attack Timeline (Investigation Feature)
-- Reconstructs attacker activity for a given IP
-- Helps analyze behavior patterns over time
-
-### 🔹 Interactive Dashboard
-- Built using Streamlit
-- Displays logs, alerts, risk rankings, and critical incidents
-- Supports filtering and CSV export
-
-### 🔹 Near Real-Time Monitoring
-- Simulates real-time log processing using periodic refresh
+This project simulates how a Security Operations Center (SOC) monitors logs, detects threats, prioritizes incidents, and investigates suspicious activity.
 
 ---
 
-## 🧠 Architecture
-Log Ingestion → Detection → Risk Scoring → Correlation → Dashboard → Investigation
+## 🚀 Why this project?
 
+Most beginner SIEM projects stop at basic log parsing and detection.
 
----
-
-## 🛠️ Tech Stack
-
-- Python
-- Pandas
-- Streamlit
-- Regex (log parsing)
+This system goes further by focusing on:
+- realistic log handling
+- intelligent alerting
+- risk-based prioritization
+- analyst investigation workflow
 
 ---
 
-## 📂 Project Structure
+## 🧠 Key Features
 
-mini-siem/
-│
-├── ingestion/ # Log parsing
-├── detection/ # Detection rules + risk scoring
-├── alerts/ # Alert generation
-├── correlation/ # Event correlation
-├── analysis/ # Timeline investigation
-├── dashboard/ # Streamlit UI
-├── data/ # Sample logs
-│
-├── main.py
-└── requirements.txt
+### 1. Log Ingestion & Parsing
+- Parses raw authentication logs (SSH logs)
+- Extracts structured fields: timestamp, IP, user, status
 
+### 2. Log Normalization
+- Handles inconsistent log formats
+- Prepares data for reliable detection
+- Improves robustness against messy real-world logs
+
+### 3. Threat Detection
+- Brute force attack detection (multiple failed logins)
+- Suspicious behavior detection (multiple usernames per IP)
+
+### 4. Time-Based Anomaly Detection
+- Detects rapid login bursts within short time windows
+- Identifies automated attack patterns
+
+### 5. Threat Intelligence Integration
+- Uses AbuseIPDB API to enrich IP reputation
+- Includes caching to avoid excessive API calls
+
+### 6. Risk Scoring Engine
+- Combines:
+  - behavior (failed attempts)
+  - anomalies (burst activity)
+  - threat intelligence
+- Produces a unified risk score per IP
+
+### 7. Alert Generation & Deduplication
+- Generates alerts based on risk score
+- Deduplicates alerts to reduce noise
+- Merges repeated signals into a single actionable alert
+
+### 8. Event Correlation
+- Combines multiple weak signals into high-confidence incidents
+
+### 9. Analyst Investigation Layer
+- Add and store investigation notes per IP
+- Simulates real SOC analyst workflow
+
+### 10. Incident-Centric Dashboard (Streamlit)
+- Risk-based ranking of threats
+- Focused incident investigation view
+- Timeline analysis of attacks
+- Alert and log visualization
+- CSV export for alerts
 
 ---
 
-## ⚙️ How to Run
-
-### 1. Clone the repository
-git clone https://github.com/YOUR_USERNAME/mini-siem.git
-
-cd mini-siem
-
-### 2. Install dependencies
-pip install -r requirements.txt
-
-### 3. Run the dashboard
-streamlit run dashboard/app.py
-
-
----
-
-## 📊 Key Highlights
-
-- Implements risk-based threat prioritization instead of static severity
-- Supports investigation through attack timeline reconstruction
-- Simulates real SOC workflows in a simplified environment
-
----
-
-## 🔍 Future Improvements
-
-- Threat intelligence integration (IP reputation APIs)
-- Real-time streaming using Kafka or sockets
-- Anomaly detection using behavioral baselines
-
----
-
-## 👩‍💻 Author
-
-Aakriti Jaketia
+## 🏗️ Project Structure
